@@ -8,7 +8,7 @@ import numpy as np       # 추가
 # 모델 로드 (가이드 8페이지 기준) [cite: 285, 287]
 @st.cache_resource
 def load_model():
-    return tf.keras.models.load_model('trash_classifier.h5')
+    return tf.keras.models.load_model('trash_classifier.keras', compile=False)
 
 model = load_model()
 
