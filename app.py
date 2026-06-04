@@ -1,3 +1,8 @@
+import os
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
+import warnings
+warnings.filterwarnings("ignore")
 
 import streamlit as st
 from PIL import Image
@@ -8,7 +13,11 @@ import numpy as np       # 추가
 # 모델 로드 (가이드 8페이지 기준) [cite: 285, 287]
 @st.cache_resource
 def load_model():
-    return tf.keras.models.load_model('trash_classifier.keras', compile=False)
+    return tf.keras.models.load_model(
+        "best_trash_model.keras",
+        safe_mode=False,
+        compile=False
+    )
 
 model = load_model()
 
@@ -120,18 +129,49 @@ with col2:
         
         # --- 모델 추론 및 결과 처리 시작 ---
         # 1. 이미지 전처리 (가이드 9페이지 기준) [cite: 317, 318, 319, 320]
+        # 이미지 전처리
         img_resized = img.convert("RGB").resize((224, 224))
-        img_array = np.array(img_resized) / 255.0
-        img_array = np.expand_dims(img_array, axis=0)
-        
-        # 2. 예측 수행 및 결과 추출 [cite: 321, 322, 323, 324]
-        pred = model.predict(img_array)[0]
-        top_idx = np.argmax(pred)
+
+        img_array = np.array(
+            img_resized,
+            dtype=np.float32
+        )
+
+        img_array = np.expand_dims(
+            img_array,
+            axis=0
+        )
+
+
+# 예측
+        pred = model.predict(
+            img_array,
+            verbose=0
+        )[0]
+
+        sorted_idx = np.argsort(pred)[::-1]
+
+        top_idx = sorted_idx[0]
         top_class = CLASS_NAMES[top_idx]
         confidence = pred[top_idx] * 100
-        
-        st.markdown(f'<p style="color:#1b5e20; font-weight:800; font-size:1.2rem;"> 분석 완료! (신뢰도: {confidence:.1f}%)</p>', unsafe_allow_html=True)
-        st.success(f"분류 결과: {CLASS_KOREAN[top_class]}")
+
+        st.markdown(
+            f'<p style="color:#1b5e20; font-weight:800; font-size:1.2rem;">분석 완료! (신뢰도: {confidence:.1f}%)</p>',
+            unsafe_allow_html=True
+        )
+
+        st.success(
+            f"분류 결과: {CLASS_KOREAN[top_class]}"
+        )
+
+# 디버깅용 확률 표시
+        with st.expander("예측 확률 보기"):
+
+            for idx in sorted_idx:
+
+                st.write(
+                    f"{CLASS_NAMES[idx]} : {pred[idx] * 100:.2f}%"
+                )
         
         # 3. 분리수거 가이드 표시 (가이드 10페이지 기준) [cite: 327, 331]
         # (별도의 guides.py가 있다면 import해서 사용)
