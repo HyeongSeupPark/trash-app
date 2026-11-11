@@ -11,15 +11,19 @@ import tensorflow as tf
 import numpy as np
 
 # 모델 로드 (캐싱 처리)
+# 모델 파일이 바뀌면(크기/수정시각) 캐시 키가 달라져서 새 모델을 다시 불러온다
+MODEL_PATH = "best_trash_model.keras"
+
 @st.cache_resource
-def load_model():
+def load_model(path, file_signature):
     return tf.keras.models.load_model(
-        "best_trash_model.keras",
+        path,
         safe_mode=False,
         compile=False
     )
 
-model = load_model()
+_stat = os.stat(MODEL_PATH)
+model = load_model(MODEL_PATH, (_stat.st_size, _stat.st_mtime))
 
 # 카테고리 정의
 CLASS_NAMES = ['general', 'glass', 'metal', 'paper', 'plastic', 'vinyl']
