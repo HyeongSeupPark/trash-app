@@ -5,7 +5,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 import streamlit as st
-from PIL import Image
+from PIL import Image, ImageOps
 import time
 import tensorflow as tf
 import numpy as np
@@ -116,7 +116,14 @@ st.markdown("""
         box-shadow: 0 4px 12px rgba(46, 125, 50, 0.2);
     }
     /* ========================================= */
-    
+
+    /* 📷 촬영/업로드 탭 */
+    [role="tab"] p { font-size: 1.15rem !important; font-weight: 800 !important; color: #2e7d32 !important; }
+    [role="tab"][aria-selected="true"] p { color: #1b5e20 !important; }
+    [data-testid="stCameraInput"] label p { font-size: 1.0rem !important; font-weight: 600 !important; color: #2e7d32 !important; }
+    [data-testid="stCameraInput"] video, [data-testid="stCameraInput"] img { border-radius: 20px !important; }
+    [data-testid="stCameraInput"] button { background-color: #2e7d32 !important; color: #ffffff !important; font-weight: 800 !important; border-radius: 30px !important; border: none !important; }
+
     /* FAQ 섹션 스타일링 */
     .faq-title { font-size: 2.0rem !important; font-weight: 800 !important; color: #1b5e20 !important; margin-top: 3rem !important; margin-bottom: 1.5rem !important; display: flex; align-items: center; gap: 10px; }
     [data-testid="stExpander"] { border: 1px solid #e8f5e9 !important; border-radius: 16px !important; background-color: #ffffff !important; box-shadow: 0 4px 15px rgba(27, 94, 32, 0.05) !important; margin-bottom: 10px !important; overflow: hidden !important; }
@@ -146,14 +153,41 @@ col1, col2 = st.columns(2, gap="large")
 # ─── 왼쪽: 사진 등록 영역 (빈 박스 원인 코드 삭제 완료) ───
 with col1:
     st.markdown(f'<div style="display:flex; align-items:center; margin-bottom:1.5rem;">{camera_icon}<span style="font-size:2.4rem; font-weight:900; color:#1b5e20;">사진 등록</span></div>', unsafe_allow_html=True)
-    img_file = st.file_uploader(label="", type=['jpg', 'jpeg', 'png'], label_visibility="collapsed")
+
+    # 마지막으로 사용한 입력(촬영/업로드)을 기억해서 그 사진을 분석
+    def _remember_source(src):
+        st.session_state["last_source"] = src
+
+    tab_cam, tab_upload = st.tabs(["📷 바로 촬영", "🖼️ 앨범에서 선택"])
+    with tab_cam:
+        cam_file = st.camera_input(
+            "쓰레기를 화면 가운데에 비추고 촬영 버튼을 누르세요",
+            key="cam_input",
+            on_change=_remember_source,
+            args=("cam",),
+        )
+    with tab_upload:
+        upload_file = st.file_uploader(
+            label="",
+            type=['jpg', 'jpeg', 'png'],
+            label_visibility="collapsed",
+            key="upload_input",
+            on_change=_remember_source,
+            args=("upload",),
+        )
+
+    if st.session_state.get("last_source") == "cam":
+        img_file = cam_file or upload_file
+    else:
+        img_file = upload_file or cam_file
 
 # ─── 오른쪽: 분석 결과 영역 (빈 박스 원인 코드 삭제 완료) ───
 with col2:
     st.markdown(f'<div style="display:flex; align-items:center; margin-bottom:1.5rem;">{result_icon}<span style="font-size:2.4rem; font-weight:900; color:#1b5e20;">분석 결과</span></div>', unsafe_allow_html=True)
     
     if img_file:
-        img = Image.open(img_file)
+        # 휴대폰 사진의 EXIF 회전 정보를 반영 (세로 사진이 눕혀진 채 모델에 들어가는 것 방지)
+        img = ImageOps.exif_transpose(Image.open(img_file))
         st.image(img, use_container_width=True)
         
         # --- 모델 전처리 및 추론 ---
